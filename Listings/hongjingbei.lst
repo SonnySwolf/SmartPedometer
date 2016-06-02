@@ -1,0 +1,307 @@
+C51 COMPILER V9.55   HONGJINGBEI                                                           05/24/2016 11:28:12 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE HONGJINGBEI
+OBJECT MODULE PLACED IN .\Objects\hongjingbei.obj
+COMPILER INVOKED BY: E:\Keil_v5\C51\BIN\C51.EXE hongjingbei.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongjing_lib;.\hon
+                    -gjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\hongjingbei.lst) TABS(2) OBJECT(.\Objects\hongjingbei.obj)
+
+line level    source
+
+   1          #include<Config.h>
+   2          #include<MPU6050.h>
+   3          #include<delay.h>
+   4          #include<UART.h>
+   5          #include"stdio.h"
+   6          #include<jiexi.h>
+   7          #include<lcd5110.h>
+   8          #include"string.h"
+   9          #include<./gprs.h>
+  10          #define RANGE 4
+  11          char code str10[] = "\r\nAT+CSCS=\"GSM\"\r\n"; // ×Ö·û¼¯          
+  12          char code str20[]="AT+CSMP=17,167,0,0\r\n"; 
+  13          char code phone[]="AT+CMGS=\"15865281903\"\r\n";
+  14          char sec = 0, min = 0;
+  15          unsigned int timerflag=0;
+  16          unsigned int step = 0;
+  17          bit fallstatus = 0;//0Ã»µ¹
+  18          bit status1 = 0;  //µÈ´ýÈ¡Ïû·¢ËÍÐÅÏ¢
+  19          bit iscancel = 0;    //ÊÇ·ñ°´¼üÈ¡Ïû
+  20          bit certainsend = 0;  //È·ÈÏ·¢ËÍÐÅÏ¢
+  21          bit beepflag = 0;   //ÏìÁå±êÖ¾
+  22          bit iscount = 0;    //ÊÇ·ñ¿ªÊ¼¼Æ²½
+  23          bit iskeystatuschanged = 0;//ÊÇ·ñ¸Ä±ä°´¼ü×´Ì¬
+  24          bit enter = 0;//ÊÇ·ñÈ·¶¨
+  25          char strsend[50] = {0};
+  26          sbit beep = P4^5; //0Ïì
+  27          sbit key = P0^0;//È¡Ïû¾¯±¨
+  28          sbit key2 = P1^2;//
+  29          uchar keystatus = 0;//0 ¼Æ²½  1 ÔÝÍ£ 2 ÉÏ´«
+  30          int temp1, temp2;
+  31          void GSM_Sent_Text_Message(char *str)
+  32          {
+  33   1        Delaynms(350);         
+  34   1        printf("%s",str10);                 
+  35   1        Delaynms(350);
+  36   1        printf("%s",str20);       
+  37   1        Delaynms(350);
+  38   1        printf("%s",phone);          
+  39   1        Delaynms(350);
+  40   1        printf("%s",str);                
+  41   1        Delaynms(450);
+  42   1        Uart1SendData(0x1A);
+  43   1        Delaynms(350);
+  44   1      }
+  45          void Timer1Init(void)   //1ºÁÃë@8MHz
+  46          {
+  47   1        AUXR |= 0x40;   //¶¨Ê±Æ÷Ê±ÖÓ1TÄ£Ê½
+  48   1        TMOD &= 0x0F;   //ÉèÖÃ¶¨Ê±Æ÷Ä£Ê½
+  49   1        TL1 = 0xC0;   //ÉèÖÃ¶¨Ê±³õÖµ
+  50   1        TH1 = 0xE0;   //ÉèÖÃ¶¨Ê±³õÖµ
+  51   1        TF1 = 0;    //Çå³ýTF1±êÖ¾
+  52   1        TR1 = 1;    //¶¨Ê±Æ÷1¿ªÊ¼¼ÆÊ±
+  53   1        ET1 = 1;    //
+  54   1      }
+C51 COMPILER V9.55   HONGJINGBEI                                                           05/24/2016 11:28:12 PAGE 2   
+
+  55          void Timer0Init(void)   //20ºÁÃë@8MHz
+  56          {
+  57   1        AUXR &= 0x7F;   //¶¨Ê±Æ÷Ê±ÖÓ12TÄ£Ê½
+  58   1        TMOD &= 0xF0;   //ÉèÖÃ¶¨Ê±Æ÷Ä£Ê½
+  59   1        TL0 = 0xEB;   //ÉèÖÃ¶¨Ê±³õÖµ
+  60   1        TH0 = 0xCB;   //ÉèÖÃ¶¨Ê±³õÖµ
+  61   1        TF0 = 0;    //Çå³ýTF0±êÖ¾
+  62   1        TR0 = 1;    //¶¨Ê±Æ÷0¿ªÊ¼¼ÆÊ±
+  63   1        ET0 = 1;
+  64   1      }
+  65          void systemInit(void)
+  66          {
+  67   1        InitUart2();
+  68   1        InitUart1();
+  69   1        Timer0Init();
+  70   1        Timer1Init();
+  71   1        PS = 1;
+  72   1        InitMPU6050();
+  73   1        P4M1 &=~BIT5;
+  74   1        P4M0 |= BIT5;
+  75   1        lcd5110Init();
+  76   1      }
+  77          void beepnms(uint time)
+  78          {
+  79   1        beep = 0;
+  80   1        Delaynms(time);
+  81   1        beep = 1;
+  82   1      }
+  83          void findstep(void)
+  84          {
+  85   1        static int temppre = 1500, maxpre = 1500, minpre = 1500;
+  86   1        static unsigned char flag = 0;
+  87   1        if(temppre < temp1)
+  88   1        {
+  89   2          if(flag == 2)
+  90   2            minpre = temppre;
+  91   2          temppre = temp1;
+  92   2          flag = 1; //Ç°Ò»¸öÒ»Ö±Ð¡
+  93   2        }
+  94   1        if(temppre>temp1)
+  95   1        {
+  96   2          if(flag == 1)
+  97   2          {
+  98   3            maxpre = temppre;
+  99   3            if(maxpre - minpre >2000 && timerflag > 150)
+ 100   3              {
+ 101   4                step ++;
+ 102   4                timerflag = 0;
+ 103   4                beepnms(50);
+ 104   4                lcdClearAny(2,6,13);
+ 105   4                lcdShowDouble(2,7,(double)step,0);
+ 106   4              }
+ 107   3          }
+ 108   2          temppre = temp1;
+ 109   2          flag = 2;           
+ 110   2        } 
+ 111   1      }
+ 112          int smooth_filter(int n)
+ 113          {
+ 114   1        int xdata a[RANGE]={0};
+ 115   1        int rtn;
+ 116   1        unsigned char q,w;
+C51 COMPILER V9.55   HONGJINGBEI                                                           05/24/2016 11:28:12 PAGE 3   
+
+ 117   1        for(q=0;q<RANGE-1;q++)    //
+ 118   1          {
+ 119   2            a[q]=a[q+1];
+ 120   2            a[RANGE-1]=n;
+ 121   2          
+ 122   2            for(w=0;w<RANGE;w++)
+ 123   2            {
+ 124   3              rtn+=a[w];
+ 125   3              rtn=rtn/RANGE;
+ 126   3            } 
+ 127   2          }
+ 128   1          return rtn;
+ 129   1      }
+ 130          void interface()
+ 131          {
+ 132   1        lcdWriteChar16_16(3, 4, 0);//È·¶¨
+ 133   1        lcdWriteChar16_16(4, 4, 1);
+ 134   1        lcdWriteChar16_16(0, 0, 4);//¼Æ²½
+ 135   1        lcdWriteChar16_16(1, 0, 5);
+ 136   1        lcdWriteChar16_16(0, 2, 8);//ÇåÁã
+ 137   1        lcdWriteChar16_16(1, 2, 9);
+ 138   1        lcdWriteChar16_16(0, 4, 6);//ÉÏ´«
+ 139   1        lcdWriteChar16_16(1, 4, 7);
+ 140   1        lcdWriteChar6_8(5,keystatus * 2,12);//±êÖ¾
+ 141   1        lcdWriteChar6_8(5,keystatus * 2 + 1,12);
+ 142   1      }
+ 143          void main(void)
+ 144          {
+ 145   1        uchar i = 0;
+ 146   1        Delaynms(13000);
+ 147   1        systemInit();
+ 148   1        whichuartreceive = 2;
+ 149   1        whichuartsend = 1;
+ 150   1        interface();
+ 151   1        while(1)
+ 152   1        { 
+ 153   2          temp1=abs(GetData(ACCEL_XOUT_H));
+ 154   2          temp2 =smooth_filter(temp1);
+ 155   2          if(temp2 < 3000)
+ 156   2            fallstatus = 1;
+ 157   2          else 
+ 158   2            fallstatus = 0;
+ 159   2          if(fallstatus == 0 && keystatus == 0 && enter == 1)findstep();
+ 160   2          if(iskeystatuschanged == 1)
+ 161   2          {
+ 162   3            for(i = 0; i<6; i++)
+ 163   3            lcdClearAny(i,5,6);
+ 164   3            lcdWriteChar6_8(5,keystatus * 2,12);
+ 165   3            lcdWriteChar6_8(5,keystatus * 2 + 1,12);
+ 166   3            Delaynms(500);
+ 167   3            iskeystatuschanged = 0;
+ 168   3          }
+ 169   2          if(enter == 1 && keystatus != 0)
+ 170   2          {
+ 171   3            if(keystatus == 1)
+ 172   3            { 
+ 173   4              step = 0;
+ 174   4              lcdClearAny(2,6,13);
+ 175   4            }
+ 176   3            else if(keystatus == 2)
+ 177   3            { 
+ 178   4              GPRS_SendStep();
+C51 COMPILER V9.55   HONGJINGBEI                                                           05/24/2016 11:28:12 PAGE 4   
+
+ 179   4              Delaynms(4000);
+ 180   4              lcd5110Init();
+ 181   4              interface();
+ 182   4            }
+ 183   3            enter = 0;
+ 184   3          }
+ 185   2          if(beepflag==1)
+ 186   2          {
+ 187   3            beepnms(100);
+ 188   3          }
+ 189   2          if(certainsend == 1)
+ 190   2          {
+ 191   3            IE2 |= 0x01;  
+ 192   3            Anylize();
+ 193   3            IE2 &=~ 0x01; 
+ 194   3            sprintf(strsend,"HELP!!\r\nLOCATION:N:%s,E:%s.",lati,longi);
+ 195   3            GSM_Sent_Text_Message(strsend);
+ 196   3            GPRS_Send();
+ 197   3            certainsend = 0;
+ 198   3          }
+ 199   2          Delaynms(200);
+ 200   2        }
+ 201   1      }
+ 202          void timer0() interrupt 1 
+ 203          {
+ 204   1        static uchar num = 0;
+ 205   1        num ++;
+ 206   1        if(num == 50){num = 0;sec++;}
+ 207   1        if(fallstatus == 0){status1 = 0; iscancel = 0;beepflag = 0;certainsend = 0;min = 0;sec = 0;}//Î´Ë¤µ¹
+ 208   1        if(fallstatus == 1 && status1 == 0 && iscancel == 0){ sec = 0 ;min = 0;status1 = 1;} //¸ÕË¤µ¹ºó
+ 209   1        if(fallstatus == 1 && status1 == 1){iscancel = 0;}
+ 210   1        if(status1 ==1 && sec >5 && sec <20 && min ==0) beepflag = 1;//Ë¤µ¹ºóÊ±¼äÄÚÎ´µÈµ½È¡ÏûÓÐ±¨¾¯
+ 211   1        if(status1 ==1 && key == 0) {beepflag = 0;iscancel = 1; status1 = 0;}//Ë¤µ¹ºóÈ¡Ïû
+ 212   1        if(status1 ==1 && sec == 20 && min ==0 && iscancel == 0) {beepflag = 0;certainsend = 1;}  //Ë¤µ¹ºóÊ±¼äÄÚÎ
+             -´µÈµ½È¡ÏûÔò·¢ËÍ
+ 213   1        
+ 214   1        if(key == 0 && iskeystatuschanged == 0 && status1 == 0)
+ 215   1        {
+ 216   2          enter = 0;
+ 217   2          iskeystatuschanged = 1;
+ 218   2          keystatus ++;
+ 219   2          if(keystatus == 3) keystatus = 0;
+ 220   2        }
+ 221   1        if(key2 == 0)
+ 222   1        {
+ 223   2          enter = 1;
+ 224   2        }
+ 225   1      }
+ 226          
+ 227          void timer1() interrupt 3 using 1
+ 228          {
+ 229   1        timerflag++;
+ 230   1        if(timerflag >= 30000)
+ 231   1          timerflag = 0;
+ 232   1      }
+ 233          void Uart1() interrupt 4 using 1
+ 234          {
+ 235   1        ES=0;
+ 236   1          if (RI)
+ 237   1          {
+ 238   2              RI = 0;                 //Çå³ýRIÎ»
+ 239   2          if((isreceive==1)&&(uart_rx_cnt<UART_BUF_SIZE))
+C51 COMPILER V9.55   HONGJINGBEI                                                           05/24/2016 11:28:12 PAGE 5   
+
+ 240   2          {
+ 241   3            
+ 242   3            uart_rx[uart_rx_wp]=SBUF;
+ 243   3            uart_rx_wp=(uart_rx_wp+1)%UART_BUF_SIZE;
+ 244   3            uart_rx_cnt++;
+ 245   3          }
+ 246   2          }
+ 247   1          if (TI)
+ 248   1          {
+ 249   2              TI = 0;                 //Çå³ýTIÎ»
+ 250   2              busy1 = 0;               //ÇåÃ¦±êÖ¾
+ 251   2          }
+ 252   1        ES=1;
+ 253   1      }
+ 254          void Uart2() interrupt 8 using 1
+ 255          {
+ 256   1        IE2&=~0x01;     //¹Ø±Õ´®¿ÚÖÐ¶Ï
+ 257   1          if (S2CON & S2RI)
+ 258   1          {
+ 259   2              S2CON &= ~S2RI;         //Çå³ýS2RIÎ»
+ 260   2              if((isreceive2==1)&&(uart2_rx_cnt<UART_BUF_SIZE))
+ 261   2          {
+ 262   3            
+ 263   3            uart2_rx[uart2_rx_wp]=S2BUF;
+ 264   3            uart2_rx_wp=(uart2_rx_wp+1)%UART_BUF_SIZE;
+ 265   3            uart2_rx_cnt++;
+ 266   3          }
+ 267   2          }
+ 268   1          if (S2CON & S2TI)
+ 269   1          {
+ 270   2              S2CON &= ~S2TI;         //Çå³ýS2TIÎ»
+ 271   2              busy2=0;               //ÇåÃ¦±êÖ¾
+ 272   2          }
+ 273   1        IE2|=0x01;          //¿ªÆô´®¿ÚÖÐ¶Ï
+ 274   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3464    ----
+   CONSTANT SIZE    =   1069    ----
+   XDATA SIZE       =    113      66
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      8       2
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

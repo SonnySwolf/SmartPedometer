@@ -1,0 +1,285 @@
+C51 COMPILER V9.53.0.0   PROJECT                                                           05/09/2015 09:02:59 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE PROJECT
+OBJECT MODULE PLACED IN .\Objects\project.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE project.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\lib\inc;..\STC15W4K58S
+                    -4) DEBUG OBJECTEXTEND PRINT(.\Listings\project.lst) TABS(2) OBJECT(.\Objects\project.obj)
+
+line level    source
+
+   1          #include <STC15W4K58S4.h>
+   2          #include <delay.h>
+   3          #include <MPU6050.h>
+   4          #include <Uart.h>
+   5          #include <Config.h>
+   6          #include <stdio.h>
+   7          
+   8          #define RANGE 5
+   9          
+  10          void SystemInit()
+  11          {
+  12   1        InitUart1();
+  13   1        Delaynms(150);
+  14   1        //InitUart2();
+  15   1        Delaynms(150);
+  16   1        InitMPU6050();
+  17   1        Delaynms(150);
+  18   1      }
+  19          
+  20          
+  21          float KalmanGain;//  卡尔曼增益
+  22          float EstimateCovariance;//估计协方差
+  23          float MeasureCovariance;//测量协方差
+  24          float EstimateValue;//估计值
+  25          
+  26          
+  27          
+  28          //******角度参数************
+  29          
+  30          float Gyro_y;        //Y轴陀螺仪数据暂存
+  31          float Angle_gy;      //由角速度计算的倾斜角度
+  32          float Accel_x;       //X轴加速度值暂存
+  33          float Angle_ax;      //由加速度计算的倾斜角度
+  34          float Angle;         //小车最终倾斜角度
+  35          //uchar value;     //角度正负极性标记 
+  36          
+  37          
+  38          
+  39          //******卡尔曼参数************
+  40              
+  41          float code Q_angle=0.001;  
+  42          float code Q_gyro=0.003;
+  43          float code R_angle=0.5;
+  44          float code dt=0.01;                   //dt为kalman滤波器采样时间;
+  45          char  code C_0 = 1;
+  46          float xdata Q_bias, Angle_err;
+  47          float xdata PCt_0, PCt_1, E;
+  48          float xdata K_0, K_1, t_0, t_1;
+  49          float xdata Pdot[4] ={0,0,0,0};
+  50          float xdata PP[2][2] = { { 1, 0 },{ 0, 1 } };
+  51          
+  52          //*********************************************************
+  53          // 卡尔曼滤波
+  54          //*********************************************************
+C51 COMPILER V9.53.0.0   PROJECT                                                           05/09/2015 09:02:59 PAGE 2   
+
+  55          
+  56          //Kalman滤波，20MHz的处理时间约0.77ms；
+  57          
+  58          void Kalman_Filter(float Accel,float Gyro)    
+  59          {
+  60   1        Angle+=(Gyro - Q_bias) * dt; //先验估计
+  61   1      
+  62   1        
+  63   1        Pdot[0]=Q_angle - PP[0][1] - PP[1][0]; // Pk-先验估计误差协方差的微分
+  64   1      
+  65   1        Pdot[1]=- PP[1][1];
+  66   1        Pdot[2]=- PP[1][1];
+  67   1        Pdot[3]=Q_gyro;
+  68   1        
+  69   1        PP[0][0] += Pdot[0] * dt;   // Pk-先验估计误差协方差微分的积分
+  70   1        PP[0][1] += Pdot[1] * dt;   // =先验估计误差协方差
+  71   1        PP[1][0] += Pdot[2] * dt;
+  72   1        PP[1][1] += Pdot[3] * dt;
+  73   1          
+  74   1        Angle_err = Accel - Angle;  //zk-先验估计
+  75   1        
+  76   1        PCt_0 = C_0 * PP[0][0];
+  77   1        PCt_1 = C_0 * PP[1][0];
+  78   1        
+  79   1        E = R_angle + C_0 * PCt_0;
+  80   1        
+  81   1        K_0 = PCt_0 / E;
+  82   1        K_1 = PCt_1 / E;
+  83   1        
+  84   1        t_0 = PCt_0;
+  85   1        t_1 = C_0 * PP[0][1];
+  86   1      
+  87   1        PP[0][0] -= K_0 * t_0;     //后验估计误差协方差
+  88   1        PP[0][1] -= K_0 * t_1;
+  89   1        PP[1][0] -= K_1 * t_0;
+  90   1        PP[1][1] -= K_1 * t_1;
+  91   1          
+  92   1        Angle += K_0 * Angle_err;  //后验估计
+  93   1        Q_bias  += K_1 * Angle_err;  //后验估计
+  94   1        Gyro_y   = Gyro - Q_bias;  //输出值(后验估计)的微分=角速度
+  95   1      
+  96   1      }
+  97          
+  98          
+  99          
+ 100          //*********************************************************
+ 101          // 倾角计算（卡尔曼融合）
+ 102          //*********************************************************
+ 103          
+ 104          void Angle_Calcu(void)   
+ 105          {
+ 106   1        //------加速度--------------------------
+ 107   1      
+ 108   1        //范围为2g时，换算关系：16384 LSB/g
+ 109   1        //角度较小时，x=sinx得到角度（弧度）, deg = rad*180/3.14
+ 110   1        //因为x>=sinx,故乘以1.3适当放大
+ 111   1      
+ 112   1        Accel_x  = GetData(ACCEL_XOUT_H);   //读取X轴加速度
+ 113   1        Angle_ax = (Accel_x - 1100) /16384;   //去除零点偏移,计算得到角度（弧度）
+ 114   1        Angle_ax = Angle_ax*1.2*180/3.14;     //弧度转换为度,
+ 115   1      
+ 116   1      
+C51 COMPILER V9.53.0.0   PROJECT                                                           05/09/2015 09:02:59 PAGE 3   
+
+ 117   1          //-------角速度-------------------------
+ 118   1      
+ 119   1        //范围为2000deg/s时，换算关系：16.4 LSB/(deg/s)
+ 120   1      
+ 121   1        Gyro_y = GetData(GYRO_YOUT_H);        //静止时角速度Y轴输出为-30左右
+ 122   1        Gyro_y = -(Gyro_y + 30)/16.4;         //去除零点偏移，计算角速度值,负号为方向处理 
+ 123   1        //Angle_gy = Angle_gy + Gyro_y*0.01;  //角速度积分得到倾斜角度. 
+ 124   1      
+ 125   1        
+ 126   1        //-------卡尔曼滤波融合-----------------------
+ 127   1      
+ 128   1        Kalman_Filter(Angle_ax,Gyro_y);       //卡尔曼滤波计算倾角
+ 129   1      
+ 130   1      
+ 131   1        /*//-------互补滤波-----------------------
+ 132   1      
+ 133   1        //补偿原理是取当前倾角和加速度获得倾角差值进行放大，然后与
+ 134   1          //陀螺仪角速度叠加后再积分，从而使倾角最跟踪为加速度获得的角度
+ 135   1        //0.5为放大倍数，可调节补偿度；0.01为系统周期10ms 
+ 136   1          
+ 137   1        Angle = Angle + (((Angle_ax-Angle)*0.5 + Gyro_y)*0.01);*/
+ 138   1                                      
+ 139   1      }  
+ 140          
+ 141          /////////////////////////////////////////////////
+ 142          //平滑滤波
+ 143          /////////////////////////////////////////////////
+ 144          int smooth_filter(int n)
+ 145          {
+ 146   1        int xdata a[RANGE]={0};
+ 147   1        int rtn;
+ 148   1        unsigned char q,w;
+ 149   1        for(q=0;q<RANGE-1;q++)    //平滑滤波范围
+ 150   1          {
+ 151   2            a[q]=a[q+1];
+ 152   2            a[RANGE-1]=n;
+ 153   2          
+ 154   2            for(w=0;w<RANGE;w++)
+ 155   2            {
+ 156   3              rtn+=a[w];
+ 157   3              rtn=rtn/RANGE;
+ 158   3            }
+ 159   2            
+ 160   2          }
+ 161   1          return rtn;
+ 162   1      }
+ 163          
+ 164          
+ 165          void KalmanFilterInit(void)
+ 166          {
+ 167   1              EstimateValue = 0;
+ 168   1              EstimateCovariance = 1;
+ 169   1              MeasureCovariance = 2;
+ 170   1      }
+ 171          
+ 172          float KalmanFilter(float Measure)
+ 173          {
+ 174   1              //计算卡尔曼增益
+ 175   1              KalmanGain=EstimateCovariance*sqrt(1/(EstimateCovariance*EstimateCovariance+MeasureCovariance*Meas
+             -ureCovariance));
+ 176   1      
+ 177   1              //计算本次滤波估计值
+C51 COMPILER V9.53.0.0   PROJECT                                                           05/09/2015 09:02:59 PAGE 4   
+
+ 178   1              EstimateValue=EstimateValue+KalmanGain * (Measure-EstimateValue);
+ 179   1              
+ 180   1              //更新估计协方差
+ 181   1              EstimateCovariance=sqrt(1-KalmanGain) * EstimateCovariance;
+ 182   1              
+ 183   1              //更新测量方差
+ 184   1              MeasureCovariance=sqrt(1-KalmanGain) * MeasureCovariance;
+ 185   1              
+ 186   1              //返回估计值
+ 187   1              return EstimateValue;
+ 188   1      }
+ 189          
+ 190          
+ 191          
+ 192          //*********************************************************
+ 193          //主程序
+ 194          //**************************************** *****************
+ 195          void main()
+ 196          { 
+ 197   1        int temp;
+ 198   1        Delaynms(500);    //上电延时  
+ 199   1        SystemInit();
+ 200   1        while(1)
+ 201   1        {
+ 202   2        //x = abs(GetData(ACCEL_XOUT_H)/4); //显示X轴加速度
+ 203   2        //y = abs(GetData(ACCEL_YOUT_H)/4); //显示Y轴加速度
+ 204   2        //z = abs(GetData(ACCEL_ZOUT_H)/4); //显示Z轴加速度
+ 205   2        //  Display10BitData(GetData(GYRO_XOUT_H),2,1); //显示X轴角速度
+ 206   2        //  Display10BitData(GetData(GYRO_YOUT_H),7,1); //显示Y轴角速度
+ 207   2        //  Display10BitData(GetData(GYRO_ZOUT_H),12,1);  //显示Z轴角速度
+ 208   2          //x=188;
+ 209   2          //printf("%d\r\n",x);
+ 210   2          temp=abs(GetData(ACCEL_XOUT_H));
+ 211   2          printf("%d %d;",temp,10*smooth_filter(temp));
+ 212   2          //Angle_Calcu();              //倾角计算
+ 213   2          //printf("Angle_ax = %f\r\nGyro_y = %f\r\n\r\n",Angle_ax,Gyro_y);
+ 214   2          Delaynms(100);
+ 215   2        }
+ 216   1      }
+ 217          
+ 218          
+ 219          
+ 220          
+ 221          
+ 222          void Uart1() interrupt 4 using 1
+ 223          {
+ 224   1        BYTE a;
+ 225   1          if (RI)
+ 226   1          {
+ 227   2              RI = 0;                 //清除RI位
+ 228   2              a = SBUF;              //P0显示串口数据
+ 229   2          SBUF=a;
+ 230   2          }
+ 231   1          if (TI)
+ 232   1          {
+ 233   2              TI = 0;                 //清除TI位
+ 234   2              busy1 = 0;               //清忙标志
+ 235   2          }
+ 236   1      }
+ 237          /*void Uart2() interrupt 8 using 1
+ 238          {
+ 239            BYTE a;
+C51 COMPILER V9.53.0.0   PROJECT                                                           05/09/2015 09:02:59 PAGE 5   
+
+ 240              if (S2CON & S2RI)
+ 241              {
+ 242                  S2CON &= ~S2RI;         //清除S2RI位
+ 243                  a = S2BUF;             //P0显示串口数据
+ 244              S2BUF=a;
+ 245              }
+ 246              if (S2CON & S2TI)
+ 247              {
+ 248                  S2CON &= ~S2TI;         //清除S2TI位
+ 249                  busy2=0;               //清忙标志
+ 250              }
+ 251          }
+ 252          */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2015    ----
+   CONSTANT SIZE    =     34    ----
+   XDATA SIZE       =    104      28
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

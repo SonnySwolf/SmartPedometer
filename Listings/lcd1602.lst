@@ -1,0 +1,207 @@
+C51 COMPILER V9.54   LCD1602                                                               06/01/2015 20:11:30 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE LCD1602
+OBJECT MODULE PLACED IN .\Objects\lcd1602.obj
+COMPILER INVOKED BY: E:\keil\C51\BIN\C51.EXE hongjing_lib\src\lcd1602.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongjing
+                    -_lib;.\hongjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\lcd1602.lst) OBJECT(.\Objects\lcd1602.obj)
+
+line level    source
+
+   1          #include<lcd1602.h>
+   2          bit BusyTest(void)                      //检测lcd忙碌
+   3          {
+   4   1              bit result;
+   5   1              RS=0;
+   6   1              RW=1;
+   7   1              EN=1;
+   8   1              Delaynus(4);//_nop_();_nop_();_nop_();_nop_();
+   9   1              result=BF;       
+  10   1              EN=0;   
+  11   1              return result;   
+  12   1      }
+  13          void Write_com (uchar com)                             //lcd写命令
+  14          {
+  15   1              while(BusyTest()==1);
+  16   1              RS=0; 
+  17   1              RW=0; 
+  18   1              EN=0;
+  19   1              Delaynus(4);//_nop_(); _nop_();  
+  20   1              DatReg=com;
+  21   1              Delaynus(4);//_nop_();_nop_();_nop_();_nop_();             
+  22   1              EN=1; 
+  23   1              Delaynus(4);//_nop_(); _nop_(); _nop_(); _nop_();
+  24   1              EN=0; 
+  25   1      }
+  26          void WriteAddress(uchar x)                             //lcd改变地址
+  27          {   
+  28   1              Write_com(x|0x80); 
+  29   1      }
+  30          void Write_data(uchar dat)                            //lcd写数据
+  31          {   
+  32   1              while(BusyTest()==1); 
+  33   1              RS=1; 
+  34   1              RW=0; 
+  35   1              EN=0;            
+  36   1              DatReg=dat;
+  37   1              Delaynus(4);//_nop_(); _nop_(); _nop_(); _nop_();      
+  38   1              EN=1;
+  39   1              Delaynus(4);//_nop_(); _nop_(); _nop_(); _nop_();
+  40   1              EN=0;
+  41   1      }
+  42          void InitLcd1602()       //lcd初始化
+  43          {       Delaynms(15);            
+  44   1              Write_com(0x38);Delaynms(5);  
+  45   1              Write_com(0x38);Delaynms(5);
+  46   1              Write_com(0x38);Delaynms(5);
+  47   1              Write_com(0x0C);Delaynms(5);
+  48   1              Write_com(0x06);Delaynms(5);                      
+  49   1              Write_com(0x01);Delaynms(5);    
+  50   1      }
+  51          void LcdAddrStrp(uchar add,char *str)    //在确定地址显示字符串,形参为字符指针
+  52          {
+  53   1              char *strp=str;
+  54   1              while(*strp=='0')strp++;
+C51 COMPILER V9.54   LCD1602                                                               06/01/2015 20:11:30 PAGE 2   
+
+  55   1              if(*strp=='.')strp--;
+  56   1              WriteAddress(add);
+  57   1              while(*strp)
+  58   1              {
+  59   2                      Write_data(*strp++);
+  60   2              }       
+  61   1      }
+  62          void LcdAddrStr(uchar add,char str[])    //在确定地址显示字符串
+  63          {
+  64   1              char *strp=str;
+  65   1              while(*strp=='0')strp++;
+  66   1              if(*strp=='.')strp--;
+  67   1              WriteAddress(add);
+  68   1              while(*strp)
+  69   1              {
+  70   2                      Write_data(*strp++);
+  71   2              }
+  72   1      }
+  73          void LcdAddrNum(uchar add,uint x)         //在确定地址显示整型变量
+  74          {   
+  75   1              uint a[10],b,w=x;
+  76   1              uchar i=0,j;
+  77   1              WriteAddress(add);
+  78   1              while(1)
+  79   1              {
+  80   2                      b=w/10;
+  81   2                      i++;
+  82   2                      if(b==0)break;
+  83   2                      w=w/10;                         
+  84   2              }
+  85   1              w=x;
+  86   1              j=i;
+  87   1              while(i)
+  88   1              {
+  89   2                      a[i-1]=w%10;
+  90   2                      w=w/10;
+  91   2                      i--;
+  92   2              }
+  93   1              
+  94   1              while(i!=j)
+  95   1              {
+  96   2                      Write_data(0x30+a[i]);
+  97   2                      i++;
+  98   2              }
+  99   1      }
+ 100          void LcdNum(uint x)       //显示整型变量
+ 101          {   
+ 102   1              uint a[10],b,w=x;
+ 103   1              uchar i=0,j;
+ 104   1              while(1)
+ 105   1              {
+ 106   2                      b=w/10;
+ 107   2                      i++;
+ 108   2                      if(b==0)break;
+ 109   2                      w=w/10;                         
+ 110   2              }
+ 111   1              w=x;
+ 112   1              j=i;
+ 113   1              while(i)
+ 114   1              {
+ 115   2                      a[i-1]=w%10;
+ 116   2                      w=w/10;
+C51 COMPILER V9.54   LCD1602                                                               06/01/2015 20:11:30 PAGE 3   
+
+ 117   2                      i--;
+ 118   2              }
+ 119   1              
+ 120   1              while(i!=j)
+ 121   1              {
+ 122   2                      Write_data(0x30+a[i]);
+ 123   2                      i++;
+ 124   2              }
+ 125   1      }
+ 126          void  LcdAddrNum2(uchar add,unsigned long int x)          //在确定地址显示长整型变量
+ 127          {   
+ 128   1              ulint b,w=x;
+ 129   1              uchar i=0,j,a[10];
+ 130   1              WriteAddress(add);
+ 131   1              while(1)
+ 132   1              {
+ 133   2                      b=w/10;
+ 134   2                      i++;
+ 135   2                      if(b==0)break;
+ 136   2                      w=w/10;                         
+ 137   2              }
+ 138   1              w=x;
+ 139   1              j=i;
+ 140   1              while(i)
+ 141   1              {
+ 142   2                      a[i-1]=w%10;
+ 143   2                      w=w/10;
+ 144   2                      i--;
+ 145   2              }
+ 146   1              
+ 147   1              while(i!=j)
+ 148   1              {
+ 149   2                      Write_data(0x30+a[i]);
+ 150   2                      i++;
+ 151   2              }
+ 152   1      }
+ 153          void LcdNumum2(unsigned long int x)       //显示长整型变量
+ 154          {   
+ 155   1              ulint b,w=x;
+ 156   1              uchar a[10],i=0,j;
+ 157   1              while(1)
+ 158   1              {
+ 159   2                      b=w/10;
+ 160   2                      i++;
+ 161   2                      if(b==0)break;
+ 162   2                      w=w/10;                         
+ 163   2              }
+ 164   1              w=x;
+ 165   1              j=i;
+ 166   1              while(i)
+ 167   1              {
+ 168   2                      a[i-1]=w%10;
+ 169   2                      w=w/10;
+ 170   2                      i--;
+ 171   2              }       
+ 172   1              while(i!=j)
+ 173   1              {
+ 174   2                      Write_data(0x30+a[i]);
+ 175   2                      i++;
+ 176   2              }
+ 177   1      }
+
+C51 COMPILER V9.54   LCD1602                                                               06/01/2015 20:11:30 PAGE 4   
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1250    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----     107
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

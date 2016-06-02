@@ -1,0 +1,173 @@
+C51 COMPILER V9.55   JIEXI                                                                 05/24/2016 11:28:11 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE JIEXI
+OBJECT MODULE PLACED IN .\Objects\jiexi.obj
+COMPILER INVOKED BY: E:\Keil_v5\C51\BIN\C51.EXE hongjing_lib\src\jiexi.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongjin
+                    -g_lib;.\hongjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\jiexi.lst) TABS(2) OBJECT(.\Objects\jiexi.obj)
+
+line level    source
+
+   1          #include<jiexi.h>
+   2          //从 buf里面得到第 cx 个逗号所在的位置
+   3          //返回值:0~0XFE,代表逗号所在位置的偏移.
+   4          // 0XFF,代表不存在第 cx 个逗号
+   5          char GPS_Data[150];
+   6          char lati[12]={0};
+   7          char longi[12]={0};
+   8          char *NMEA_Comma_Pos(char *buf,u8 cx)
+   9          { 
+  10   1      char *p=buf;
+  11   1      while(cx)
+  12   1      {
+  13   2      if(*p==',')cx--;
+  14   2      p++;
+  15   2      }
+  16   1      return p;    //第一个字符为位置1
+  17   1      }
+  18          //m^n 函数
+  19          //返回值:m^n 次方.
+  20          u32 NMEA_Pow(u8 m,u8 n)
+  21          {
+  22   1      u32 result=1;
+  23   1      while(n--)result*=m;
+  24   1      return result;
+  25   1      }
+  26          //str转换为数字,以','或者'*'结束
+  27          //buf:数字存储区
+  28          //dx:小数点位数,返回给调用函数
+  29          //返回值:转换后的数值
+  30          
+  31          /*double NMEA_Str2num(char *buf)
+  32          {
+  33          char *p=buf;
+  34          
+  35          double ires=0,fres=0,res;
+  36          u8 ilen=0,flen=0,i;
+  37          u8 mask=0;    //标记是否是负数或小数
+  38          //p+=1;
+  39          while(1) //得到整数和小数的长度
+  40          {
+  41          if(*p=='-'){mask|=0X02;p++;}//是负数
+  42          if(*p==','||(*p=='*')|(*p == '\0'))break;//遇到结束了
+  43          if(*p=='.'){mask|=0X01;p++;}//遇到小数点了
+  44          if(mask&0X01)flen++;
+  45          else ilen++;
+  46          p++;
+  47          }
+  48          if(mask&0X02)buf++; //去掉负号
+  49          for(i=0;i<ilen;i++) ires+=NMEA_Pow(10,ilen-1 -i)*(buf[i]-'0');//得到整数部分数据
+  50          if(flen>6)flen=6; //最多取 5 位小数
+  51          for(i=0;i<flen;i++) //得到小数部分数据
+  52          {
+  53          fres+=NMEA_Pow(10,flen-1-i)*(buf[ilen+1+i]-'0');
+  54          }
+C51 COMPILER V9.55   JIEXI                                                                 05/24/2016 11:28:11 PAGE 2   
+
+  55          res=ires+fres/(double)NMEA_Pow(10,flen);
+  56          if(mask&0X02)res=-res; 
+  57          return res;
+  58          }*/
+  59          void NMEA_Strlati(char *buf)
+  60          {
+  61   1        char *p = buf;
+  62   1        uchar i=0;
+  63   1        while(1)
+  64   1        { 
+  65   2        lati[i] = *p;
+  66   2          p++;i++;
+  67   2         if(*p == ',')break; 
+  68   2        }
+  69   1        if(i > 5){
+  70   2        lati[i] = '\0';
+  71   2        i = 0;
+  72   2        while(1)
+  73   2        {
+  74   3          if(lati[i] == '.') {lati[i] = lati[i-1];
+  75   4                      lati[i-1] = lati[i-2];
+  76   4                      lati[i-2] = '.';break;}
+  77   3          i++;
+  78   3        }}
+  79   1        else {lati[0] = '1';lati[1] = '\0';}
+  80   1      }
+  81          void NMEA_Strlongi(char *buf)
+  82          {
+  83   1        char *p = buf;
+  84   1        uchar i=0;
+  85   1        while(1)
+  86   1        { 
+  87   2        longi[i] = *p;
+  88   2          p++;i++;
+  89   2         if(*p == ',')break; 
+  90   2        }
+  91   1        if(i > 5)
+  92   1        {
+  93   2        longi[i] = '\0';
+  94   2        i = 0;
+  95   2        while(1)
+  96   2        {
+  97   3          if(longi[i] == '.') {longi[i] = longi[i-1];
+  98   4                      longi[i-1] = longi[i-2];
+  99   4                      longi[i-2] = '.';break;}
+ 100   3          i++;
+ 101   3        }
+ 102   2        }
+ 103   1        else {longi[0] = '1';longi[1] = '\0';}
+ 104   1      }
+ 105          /*void Anylize()
+ 106          {
+ 107             uchar number=0;
+ 108             char* ptr=NULL;
+ 109             isreceive2=1;
+ 110             while(1)
+ 111             {
+ 112             scanf("%s",GPS_Data);
+ 113             //count=0;
+ 114             if(GPS_Data[3]=='R')break;
+ 115             }
+ 116             isreceive2=0;
+C51 COMPILER V9.55   JIEXI                                                                 05/24/2016 11:28:11 PAGE 3   
+
+ 117             ptr=NMEA_Comma_Pos(GPS_Data,3);
+ 118             position.latitude=NMEA_Str2num(ptr);
+ 119             ptr=NMEA_Comma_Pos(GPS_Data,5);
+ 120             position.longitude=NMEA_Str2num(ptr);
+ 121             for(number;number<150;number++)
+ 122             {
+ 123              GPS_Data[number]=0;
+ 124             }   
+ 125          }*/
+ 126          void Anylize()
+ 127          {
+ 128   1         uchar number=0;
+ 129   1         char* ptr=NULL;
+ 130   1         for(number;number<150;number++)
+ 131   1         {
+ 132   2            GPS_Data[number]=0;
+ 133   2         }
+ 134   1         isreceive2=1;
+ 135   1         while(1)
+ 136   1         {
+ 137   2         scanf("%s",GPS_Data);
+ 138   2         if(GPS_Data[3]=='R')break;
+ 139   2         }
+ 140   1         isreceive2=0;
+ 141   1         ptr=NMEA_Comma_Pos(GPS_Data,3);
+ 142   1         NMEA_Strlati(ptr);
+ 143   1         ptr=NMEA_Comma_Pos(GPS_Data,5);
+ 144   1         NMEA_Strlongi(ptr);
+ 145   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    481    ----
+   CONSTANT SIZE    =      3    ----
+   XDATA SIZE       =    174       9
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

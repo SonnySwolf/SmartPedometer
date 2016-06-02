@@ -1,0 +1,176 @@
+C51 COMPILER V9.55   UART                                                                  05/24/2016 11:28:11 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\Objects\Uart.obj
+COMPILER INVOKED BY: E:\Keil_v5\C51\BIN\C51.EXE hongjing_lib\src\Uart.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongjing
+                    -_lib;.\hongjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\Uart.lst) TABS(2) OBJECT(.\Objects\Uart.obj)
+
+line level    source
+
+   1          #include<Uart.h>
+   2          bit busy1;
+   3          bit busy2;
+   4          uchar whichuartsend=1;//默认使用串口1发送
+   5          uchar whichuartreceive=1;//默认使用串口1接收
+   6          bit isreceive=0; 
+   7          int uart_rx_cnt=0;
+   8          int uart_rx_rp=0;
+   9          int uart_rx_wp=0;
+  10          char uart_rx[UART_BUF_SIZE];
+  11          
+  12          bit isreceive2=0;    
+  13          int uart2_rx_cnt=0;
+  14          int uart2_rx_rp=0;
+  15          int uart2_rx_wp=0;
+  16          char uart2_rx[UART_BUF_SIZE];
+  17          unsigned long int BAUD = 115200;
+  18          void InitUart1(void)
+  19          {
+  20   1        #if (PARITYBIT == NONE_PARITY)
+  21   1          SCON = 0x50;                //8位可变波特率
+  22   1        #elif (PARITYBIT == ODD_PARITY) || (PARITYBIT == EVEN_PARITY) || (PARITYBIT == MARK_PARITY)
+                  SCON = 0xda;                //9位可变波特率,校验位初始为1
+                #elif (PARITYBIT == SPACE_PARITY)
+                  SCON = 0xd2;                //9位可变波特率,校验位初始为0
+                #endif  
+  27   1        T2L = (65536 - (FOSC/4/BAUD));   //设置波特率重装值
+  28   1          T2H = (65536 - (FOSC/4/BAUD))>>8;
+  29   1          AUXR = 0x14;                //T2为1T模式, 并启动定时器2
+  30   1          AUXR |= 0x01;               //选择定时器2为串口1的波特率发生器
+  31   1        ES=1;
+  32   1        EA=1; 
+  33   1      }
+  34          void InitUart2(void)
+  35          {
+  36   1        #if (PARITYBIT == NONE_PARITY)
+  37   1          S2CON = 0x10;               //8位可变波特率
+  38   1        #elif (PARITYBIT == ODD_PARITY) || (PARITYBIT == EVEN_PARITY) || (PARITYBIT == MARK_PARITY)
+                  S2CON = 0xda;               //9位可变波特率,校验位初始为1
+                #elif (PARITYBIT == SPACE_PARITY)
+                  S2CON = 0xd2;               //9位可变波特率,校验位初始为0
+                #endif        //8位可变波特率
+  43   1        T2L = (65536 - (FOSC/4/BAUD));   //设置波特率重装值
+  44   1          T2H = (65536 - (FOSC/4/BAUD))>>8;
+  45   1          AUXR |= 0x14;                //T2为1T模式, 并启动定时器2
+  46   1        //IE2|=0x01;           //开启串口中断
+  47   1          EA=1;
+  48   1      }
+  49          void Uart1SendData(BYTE dat)
+  50          {
+  51   1        while (busy1);   
+  52   1        #if(PARITYBIT != NONE_PARITY)
+                { 
+                  ACC = dat;                  //获取校验位P (PSW.0)
+C51 COMPILER V9.55   UART                                                                  05/24/2016 11:28:11 PAGE 2   
+
+                    if (P)                      //根据P来设置校验位
+                    {
+                  #if (PARITYBIT == ODD_PARITY)
+                        TB8 = 0;                //设置校验位为0
+                  #elif (PARITYBIT == EVEN_PARITY)
+                        TB8 = 1;                //设置校验位为1
+                  #endif
+                    }
+                    else
+                    {
+                  #if (PARITYBIT == ODD_PARITY)
+                        TB8 = 1;                //设置校验位为1
+                  #elif (PARITYBIT == EVEN_PARITY)
+                        TB8 = 0;                //设置校验位为0
+                  #endif
+                    }
+                }
+                #endif
+  73   1        busy1=1;  
+  74   1          SBUF = dat;                 //写数据到UART数据寄存器
+  75   1      }
+  76          void Uart2SendData(BYTE dat)
+  77          {
+  78   1          while (busy2);               //等待前面的数据发送完成
+  79   1        #if(PARITYBIT != NONE_PARITY)
+                {
+                  ACC = dat;                  //获取校验位P (PSW.0)
+                  if (P)                      //根据P来设置校验位
+                    {
+                    #if (PARITYBIT == ODD_PARITY)
+                        S2CON &= ~S2TB8;        //设置校验位为0
+                    #elif (PARITYBIT == EVEN_PARITY)
+                        S2CON |= S2TB8;         //设置校验位为1
+                    #endif
+                    }
+                    else
+                    {
+                    #if (PARITYBIT == ODD_PARITY)
+                        S2CON |= S2TB8;         //设置校验位为1
+                    #elif (PARITYBIT == EVEN_PARITY)
+                        S2CON &= ~S2TB8;        //设置校验位为0
+                    #endif
+                    }
+                }
+                #endif
+ 100   1          busy2 = 1;
+ 101   1        S2BUF = dat;                 //写数据到UART数据寄存器
+ 102   1      }
+ 103          char putchar(char dat)
+ 104          {
+ 105   1        if(whichuartsend==1)
+ 106   1          Uart1SendData(dat); 
+ 107   1        if(whichuartsend==2)
+ 108   1          Uart2SendData(dat);
+ 109   1          return dat;
+ 110   1      }
+ 111          char _getkey(void)  
+ 112          {  
+ 113   1          uchar ch;  
+ 114   1          //Wait until a character is available: 
+ 115   1        if(whichuartreceive==1)  
+ 116   1            {while(uart_rx_cnt == 0);  
+C51 COMPILER V9.55   UART                                                                  05/24/2016 11:28:11 PAGE 3   
+
+ 117   2            ES = 0;  
+ 118   2            ch = uart_rx[uart_rx_rp]; 
+ 119   2            uart_rx_rp = (uart_rx_rp + 1) % UART_BUF_SIZE;  
+ 120   2            uart_rx_cnt--;  
+ 121   2            ES = 1;  
+ 122   2            return ch;
+ 123   2          }
+ 124   1        else
+ 125   1          {
+ 126   2          while(uart2_rx_cnt == 0);  
+ 127   2            IE2&=~0x01;  
+ 128   2            ch = uart2_rx[uart2_rx_rp];  
+ 129   2            uart2_rx_rp = (uart2_rx_rp + 1) % UART_BUF_SIZE;  
+ 130   2            uart2_rx_cnt--;  
+ 131   2            IE2|=0x01;  
+ 132   2            return ch;  
+ 133   2          } 
+ 134   1      } 
+ 135          void Uart1SendStr(char *str)
+ 136          {
+ 137   1        while (*str)                  //检测字符串结束标志
+ 138   1          {
+ 139   2              Uart1SendData(*str++);         //发送当前字符
+ 140   2          }
+ 141   1      }
+ 142          void Uart2SendStr(char *str)
+ 143          {
+ 144   1         while (*str)                  //检测字符串结束标志
+ 145   1          {
+ 146   2              Uart2SendData(*str++);         //发送当前字符
+ 147   2          }
+ 148   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    474    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    218       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      4    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

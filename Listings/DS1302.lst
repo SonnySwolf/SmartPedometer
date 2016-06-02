@@ -1,0 +1,157 @@
+C51 COMPILER V9.53.0.0   DS1302                                                            06/01/2015 13:25:38 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE DS1302
+OBJECT MODULE PLACED IN .\Objects\DS1302.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE hongjing_lib\src\DS1302.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongji
+                    -ng_lib;.\hongjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\DS1302.lst) TABS(2) OBJECT(.\Objects\DS1302.obj)
+
+line level    source
+
+   1          #include<DS1302.h>
+   2          Time PresentTime,InitTime;
+   3          uchar ReadValue;   //´¢´æ´Ó1302¶ÁÈ¡µÄÊý¾Ý
+   4          /*****************************************************
+   5          º¯Êý¹¦ÄÜ£ºÏò1302Ð´Ò»¸ö×Ö½ÚÊý¾Ý
+   6          Èë¿Ú²ÎÊý£ºx
+   7          ***************************************************/ 
+   8          void Write1302(uchar dat)
+   9          {
+  10   1        uchar i; 
+  11   1        SCLK=0;            //À­µÍSCLK£¬ÎªÂö³åÉÏÉýÑØÐ´ÈëÊý¾Ý×öºÃ×¼±¸
+  12   1        Delaynus(5);       //ÉÔÎ¢µÈ´ý£¬Ê¹Ó²¼þ×öºÃ×¼±¸
+  13   1        for(i=0;i<8;i++)      //Á¬ÐøÐ´8¸ö¶þ½øÖÆÎ»Êý¾Ý
+  14   1          {
+  15   2             DATA=dat&0x01;    //È¡³ödatµÄµÚ0Î»Êý¾ÝÐ´Èë1302  µÍÎ»ÔÚÇ°£¬¸ßÎ»ÔÚºó
+  16   2           Delaynus(5);       //ÉÔÎ¢µÈ´ý£¬Ê¹Ó²¼þ×öºÃ×¼±¸
+  17   2           SCLK=1;           //ÉÏÉýÑØÐ´ÈëÊý¾Ý
+  18   2           Delaynus(5);      //ÉÔÎ¢µÈ´ý£¬Ê¹Ó²¼þ×öºÃ×¼±¸
+  19   2           SCLK=0;           //ÖØÐÂÀ­µÍSCLK£¬ÐÎ³ÉÂö³å
+  20   2           dat>>=1;          //½«datµÄ¸÷Êý¾ÝÎ»ÓÒÒÆ1Î»£¬×¼±¸Ð´ÈëÏÂÒ»¸öÊý¾ÝÎ»
+  21   2          }
+  22   1        
+  23   1       }
+  24          /*****************************************************
+  25          º¯Êý¹¦ÄÜ£º¸ù¾ÝÃüÁî×Ö£¬Ïò1302Ð´Ò»¸ö×Ö½ÚÊý¾Ý
+  26          Èë¿Ú²ÎÊý£ºCmd£¬´¢´æÃüÁî×Ö£»dat£¬´¢´æ´ýÐ´µÄÊý¾Ý
+  27          ***************************************************/ 
+  28          void WriteSet1302(uchar Cmd,uchar dat)
+  29           {    
+  30   1              RST=0;           //½ûÖ¹Êý¾Ý´«µÝ
+  31   1              SCLK=0;          //È·±£Ð´Êý¾ÓÇ°SCLK±»À­µÍ
+  32   1            RST=1;           //Æô¶¯Êý¾Ý´«Êä
+  33   1            Delaynus(5);     //ÉÔÎ¢µÈ´ý£¬Ê¹Ó²¼þ×öºÃ×¼±¸
+  34   1            Write1302(Cmd);  //Ð´ÈëÃüÁî×Ö
+  35   1            Write1302(dat);  //Ð´Êý¾Ý
+  36   1            SCLK=1;          //½«Ê±ÖÓµçÆ½ÖÃÓÚ¸ßµçÆ½×´Ì¬
+  37   1            RST=0;           //½ûÖ¹Êý¾Ý´«µÝ
+  38   1       }
+  39          /*****************************************************
+  40          º¯Êý¹¦ÄÜ£º´Ó1302¶ÁÒ»¸ö×Ö½ÚÊý¾Ý
+  41          Èë¿Ú²ÎÊý£ºx
+  42          ***************************************************/ 
+  43          uchar Read1302(void)
+  44           {
+  45   1          uchar i,dat;
+  46   1        Delaynus(5);       //ÉÔÎ¢µÈ´ý£¬Ê¹Ó²¼þ×öºÃ×¼±¸
+  47   1        for(i=0;i<8;i++)   //Á¬Ðø¶Á8¸ö¶þ½øÖÆÎ»Êý¾Ý
+  48   1         {   dat>>=1;
+  49   2           if(DATA==1)    //Èç¹û¶Á³öµÄÊý¾ÝÊÇ1
+  50   2           dat|=0x80;    //½«1È¡³ö£¬Ð´ÔÚdatµÄ×î¸ßÎ»
+  51   2           SCLK=1;       //½«SCLKÖÃÓÚ¸ßµçÆ½£¬ÎªÏÂ½µÑØ¶Á³ö
+  52   2           Delaynus(5);  //ÉÔÎ¢µÈ´ý
+  53   2           SCLK=0;       //À­µÍSCLK£¬ÐÎ³ÉÂö³åÏÂ½µÑØ
+  54   2           Delaynus(5);  //ÉÔÎ¢µÈ´ý
+C51 COMPILER V9.53.0.0   DS1302                                                            06/01/2015 13:25:38 PAGE 2   
+
+  55   2          }  
+  56   1        return dat;        //½«¶Á³öµÄÊý¾Ý·µ»Ø
+  57   1      }  
+  58          /*****************************************************
+  59          º¯Êý¹¦ÄÜ£º¸ù¾ÝÃüÁî×Ö£¬´Ó1302¶ÁÈ¡Ò»¸ö×Ö½ÚÊý¾Ý
+  60          Èë¿Ú²ÎÊý£ºCmd
+  61          ***************************************************/ 
+  62          uchar  ReadSet1302(uchar Cmd)
+  63           {
+  64   1        uchar dat;
+  65   1        RST=0;                 //À­µÍRST
+  66   1        SCLK=0;                //È·±£Ð´Êý¾ÓÇ°SCLK±»À­µÍ
+  67   1        RST=1;                 //Æô¶¯Êý¾Ý´«Êä
+  68   1        Write1302(Cmd);       //Ð´ÈëÃüÁî×Ö
+  69   1        dat=Read1302();       //¶Á³öÊý¾Ý
+  70   1        SCLK=1;              //½«Ê±ÖÓµçÆ½ÖÃÓÚÒÑÖª×´Ì¬
+  71   1        RST=0;               //½ûÖ¹Êý¾Ý´«µÝ
+  72   1        return dat;          //½«¶Á³öµÄÊý¾Ý·µ»Ø
+  73   1      }
+  74          
+  75          /*****************************************************
+  76          º¯Êý¹¦ÄÜ£º 1302½øÐÐÊ±¼äÉèÖÃ
+  77          ***************************************************/
+  78          void ResetTime(uchar second,uchar minute,uchar hour,uchar day,uchar month,uchar year)
+  79          {
+  80   1        InitTime.second=second;
+  81   1        InitTime.minute=minute;
+  82   1        InitTime.hour=hour;
+  83   1        InitTime.day=day;
+  84   1        InitTime.month=month;
+  85   1        InitTime.year=year;
+  86   1        WriteSet1302(0x8E,0x00);                 //¸ù¾ÝÐ´×´Ì¬¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´Èë²»±£»¤Ö¸Áî 
+  87   1          WriteSet1302(0x80,((InitTime.second/10)<<4|(InitTime.second%10)));   //¸ù¾ÝÐ´Ãë¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´ÈëÃëµÄ³
+             -õÊ¼Öµ
+  88   1        WriteSet1302(0x82,((InitTime.minute/10)<<4|(InitTime.minute%10)));   //¸ù¾ÝÐ´·Ö¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´Èë·ÖµÄ³õÊ¼
+             -Öµ
+  89   1        WriteSet1302(0x84,((InitTime.hour/10)<<4|(InitTime.hour%10))); //¸ù¾ÝÐ´Ð¡Ê±¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´ÈëÐ¡Ê±µÄ³õÊ¼Öµ
+  90   1        WriteSet1302(0x86,((InitTime.day/10)<<4|(InitTime.day%10))); //¸ù¾ÝÐ´ÈÕ¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´ÈëÈÕµÄ³õÊ¼Öµ
+  91   1        WriteSet1302(0x88,((InitTime.month/10)<<4|(InitTime.month%10))); //¸ù¾ÝÐ´ÔÂ¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´ÈëÔÂµÄ³õÊ¼Öµ
+  92   1        WriteSet1302(0x8c,((InitTime.year/10)<<4|(InitTime.year%10)));  //¸ù¾ÝÐ´Äê¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´ÈëÄêµÄ³õÊ¼Öµ
+  93   1        WriteSet1302(0x90,0xa5);                //´ò¿ª³äµç¹¦ÄÜ Ñ¡Ôñ2Kµç×è³äµç·½Ê½
+  94   1        WriteSet1302(0x8E,0x80);         //¸ù¾ÝÐ´×´Ì¬¼Ä´æÆ÷ÃüÁî×Ö£¬Ð´Èë±£»¤Ö¸Áî
+  95   1      }
+  96          /*****************************************************
+  97          º¯Êý¹¦ÄÜ£º ¼ì²é1302ÊÇ·ñÒÑÔÚÔËÐÐ
+  98          ***************************************************/ 
+  99          bit CheckDS1302GO(void)
+ 100          { 
+ 101   1        uchar flag;
+ 102   1        flag= ReadSet1302(0x81);
+ 103   1         if(flag&0x80)     //ÅÐ¶ÏÊ±ÖÓÐ¾Æ¬ÊÇ·ñ¹Ø±Õ 
+ 104   1             return 0;
+ 105   1        else 
+ 106   1          return 1;
+ 107   1      }
+ 108          void ReadTime(void)
+ 109          {
+ 110   1          ReadValue = ReadSet1302(0x81);   //´ÓÃë¼Ä´æÆ÷¶ÁÊý¾Ý
+ 111   1           PresentTime.second=((ReadValue&0x70)>>4)*10 + (ReadValue&0x0F);//½«¶Á³öÊý¾Ý×ª»¯
+ 112   1      
+ 113   1          ReadValue = ReadSet1302(0x83);  //´Ó·Ö¼Ä´æÆ÷¶Á
+ 114   1           PresentTime.minute=((ReadValue&0x70)>>4)*10 + (ReadValue&0x0F); //½«¶Á³öÊý¾Ý×ª»¯
+C51 COMPILER V9.53.0.0   DS1302                                                            06/01/2015 13:25:38 PAGE 3   
+
+ 115   1      
+ 116   1           ReadValue = ReadSet1302(0x85);  //´Ó·Ö¼Ä´æÆ÷¶Á
+ 117   1           PresentTime.hour=((ReadValue&0x70)>>4)*10 + (ReadValue&0x0F); //½«¶Á³öÊý¾Ý×ª»¯
+ 118   1      
+ 119   1         ReadValue = ReadSet1302(0x87);  //´Ó·Ö¼Ä´æÆ÷¶Á
+ 120   1           PresentTime.day=((ReadValue&0x70)>>4)*10 + (ReadValue&0x0F); //½«¶Á³öÊý¾Ý×ª»¯
+ 121   1      
+ 122   1         ReadValue = ReadSet1302(0x89);  //´Ó·Ö¼Ä´æÆ÷¶Á
+ 123   1           PresentTime.month=((ReadValue&0x70)>>4)*10 + (ReadValue&0x0F); //½«¶Á³öÊý¾Ý×ª»¯
+ 124   1      
+ 125   1         ReadValue = ReadSet1302(0x8d);  //´Ó·Ö¼Ä´æÆ÷¶Á
+ 126   1           PresentTime.year=((ReadValue&0xf0)>>4)*10 + (ReadValue&0x0F); //½«¶Á³öÊý¾Ý×ª»¯
+ 127   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    573    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     13      12
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

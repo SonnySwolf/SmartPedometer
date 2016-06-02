@@ -1,0 +1,6 @@
+".\Objects\project.obj",
+".\Objects\delay.obj",
+".\Objects\Uart.obj",
+".\Objects\MPU6050.obj" 
+TO ".\Objects\project" 
+PRINT(".\Listings\project.m51") RAMSIZE(256) 

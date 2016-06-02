@@ -1,0 +1,47 @@
+C51 COMPILER V9.53.0.0   PCA                                                               06/01/2015 13:25:39 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE PCA
+OBJECT MODULE PLACED IN .\Objects\PCA.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE hongjing_lib\src\PCA.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\hongjing_
+                    -lib;.\hongjing_lib\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\PCA.lst) TABS(2) OBJECT(.\Objects\PCA.obj)
+
+line level    source
+
+   1          #include<PCA.h>
+   2          
+   3          void ChangePwm0(uchar pwm)        //pwmµ÷ËÙ³ÌÐò    
+*** ERROR C141 IN LINE 3 OF hongjing_lib\src\PCA.c: syntax error near 'void', expected '<id>'
+   4          { 
+   5            CCAPM1&=~(0x02);
+   6              mt2=1;
+   7            CCON = 0;                       //Initial PCA control register
+*** ERROR C231 IN LINE 7 OF hongjing_lib\src\PCA.c: 'CCON': redefinition
+*** ERROR C231 IN LINE 7 OF hongjing_lib\src\PCA.c: 'CCON': redefinition
+   8                                              //PCA timer stop running
+   9                                              //Clear CF flag
+  10                                              //Clear all module interrupt flag
+  11              CL = 0;                         //Reset PCA base timer
+*** ERROR C231 IN LINE 11 OF hongjing_lib\src\PCA.c: 'CL': redefinition
+*** ERROR C231 IN LINE 11 OF hongjing_lib\src\PCA.c: 'CL': redefinition
+  12              CH = 0;
+*** ERROR C231 IN LINE 12 OF hongjing_lib\src\PCA.c: 'CH': redefinition
+*** ERROR C231 IN LINE 12 OF hongjing_lib\src\PCA.c: 'CH': redefinition
+  13              CMOD = 0x02;                    //Set PCA timer clock source as Fosc/2
+*** ERROR C231 IN LINE 13 OF hongjing_lib\src\PCA.c: 'CMOD': redefinition
+*** ERROR C231 IN LINE 13 OF hongjing_lib\src\PCA.c: 'CMOD': redefinition
+  14                                              //Disable PCA timer overflow interrupt
+  15              CCAP0H = CCAP0L = pwm;         //PWM0 port output 50% duty cycle square wave
+*** ERROR C231 IN LINE 15 OF hongjing_lib\src\PCA.c: 'CCAP0H': redefinition
+*** ERROR C202 IN LINE 15 OF hongjing_lib\src\PCA.c: 'pwm': undefined identifier
+*** ERROR C231 IN LINE 15 OF hongjing_lib\src\PCA.c: 'CCAP0H': redefinition
+  16              CCAPM0 = 0x42;                  //PCA module-0 work in 8-bit PWM mode and no PCA interrupt
+*** ERROR C231 IN LINE 16 OF hongjing_lib\src\PCA.c: 'CCAPM0': redefinition
+*** ERROR C231 IN LINE 16 OF hongjing_lib\src\PCA.c: 'CCAPM0': redefinition
+  17              CR = 1;   
+*** ERROR C231 IN LINE 17 OF hongjing_lib\src\PCA.c: 'CR': redefinition
+*** ERROR C231 IN LINE 17 OF hongjing_lib\src\PCA.c: 'CR': redefinition
+  18          }
+*** ERROR C141 IN LINE 18 OF hongjing_lib\src\PCA.c: syntax error near '}'
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  17 ERROR(S)

@@ -1,0 +1,7 @@
+".\Objects\delay.obj",
+".\Objects\MPU6050.obj",
+".\Objects\Uart.obj",
+".\Objects\jiexi.obj",
+".\Objects\hongjingbei.obj" 
+TO ".\Objects\hongjingbei" 
+PRINT(".\Listings\hongjingbei.m51") RAMSIZE(256) 
